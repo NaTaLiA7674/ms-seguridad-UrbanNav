@@ -20,6 +20,7 @@ import {
   requestBody,
   response,
 } from '@loopback/rest';
+import {ConfiguracionSeguridad} from '../config/seguridad.config';
 import {Credenciales, FactorDeAutenticacionPorCodigo, Login, Usuario} from '../models';
 import {LoginRepository, UsuarioRepository} from '../repositories';
 import {SeguridadUsuarioService} from '../services';
@@ -74,7 +75,11 @@ export class UsuarioController {
     return this.usuarioRepository.count(where);
   }
 
-  @authenticate("auth")
+  @authenticate({
+    strategy: "auth",
+    options: [ConfiguracionSeguridad.menuUsuarioId, ConfiguracionSeguridad.listarAccion],
+
+  })
   @get('/usuario')
   @response(200, {
     description: 'Array of Usuario model instances',
@@ -93,6 +98,11 @@ export class UsuarioController {
     return this.usuarioRepository.find(filter);
   }
 
+  @authenticate({
+    strategy: "auth",
+    options: [ConfiguracionSeguridad.menuUsuarioId, ConfiguracionSeguridad.guardarAccion],
+
+  })
   @patch('/usuario')
   @response(200, {
     description: 'Usuario PATCH success count',
@@ -112,6 +122,11 @@ export class UsuarioController {
     return this.usuarioRepository.updateAll(usuario, where);
   }
 
+  @authenticate({
+    strategy: "auth",
+    options: [ConfiguracionSeguridad.menuUsuarioId, ConfiguracionSeguridad.descargarAccion],
+
+  })
   @get('/usuario/{id}')
   @response(200, {
     description: 'Usuario model instance',
@@ -128,6 +143,11 @@ export class UsuarioController {
     return this.usuarioRepository.findById(id, filter);
   }
 
+  @authenticate({
+    strategy: "auth",
+    options: [ConfiguracionSeguridad.menuUsuarioId, ConfiguracionSeguridad.editarAccion],
+
+  })
   @patch('/usuario/{id}')
   @response(204, {
     description: 'Usuario PATCH success',
@@ -157,6 +177,11 @@ export class UsuarioController {
     await this.usuarioRepository.replaceById(id, usuario);
   }
 
+  @authenticate({
+    strategy: "auth",
+    options: [ConfiguracionSeguridad.menuUsuarioId, ConfiguracionSeguridad.eliminarAccion],
+
+  })
   @del('/usuario/{id}')
   @response(204, {
     description: 'Usuario DELETE success',
