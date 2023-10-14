@@ -39,6 +39,11 @@ export class UsuarioController {
     private servicioAuth: AuthService
   ) { }
 
+  @authenticate({
+    strategy: "auth",
+    options: [ConfiguracionSeguridad.menuUsuarioId, ConfiguracionSeguridad.guardarAccion],
+
+  })
   @post('/usuario')
   @response(200, {
     description: 'Usuario model instance',
@@ -104,7 +109,7 @@ export class UsuarioController {
 
   @authenticate({
     strategy: "auth",
-    options: [ConfiguracionSeguridad.menuUsuarioId, ConfiguracionSeguridad.guardarAccion],
+    options: [ConfiguracionSeguridad.menuUsuarioId, ConfiguracionSeguridad.editarAccion],
 
   })
   @patch('/usuario')
@@ -147,11 +152,6 @@ export class UsuarioController {
     return this.usuarioRepository.findById(id, filter);
   }
 
-  @authenticate({
-    strategy: "auth",
-    options: [ConfiguracionSeguridad.menuUsuarioId, ConfiguracionSeguridad.editarAccion],
-
-  })
   @patch('/usuario/{id}')
   @response(204, {
     description: 'Usuario PATCH success',
