@@ -39,11 +39,6 @@ export class UsuarioController {
     private servicioAuth: AuthService
   ) { }
 
-  @authenticate({
-    strategy: "auth",
-    options: [ConfiguracionSeguridad.menuUsuarioId, ConfiguracionSeguridad.guardarAccion],
-
-  })
   @post('/usuario')
   @response(200, {
     description: 'Usuario model instance',
