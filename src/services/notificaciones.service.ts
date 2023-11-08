@@ -1,5 +1,6 @@
 import { /* inject, */ BindingScope, injectable} from '@loopback/core';
-const fetch = require("node-fetch");
+import https from 'https';
+import fetch from 'node-fetch';
 
 
 @injectable({scope: BindingScope.TRANSIENT})
@@ -11,10 +12,15 @@ export class NotificacionesService {
    */
 
   EnviarNotificacion(datos: any, url: string) {
+    const httpsAgent = new https.Agent({
+      rejectUnauthorized: false,
+    });
+
     fetch(url, {
       method: 'post',
       body: JSON.stringify(datos),
       headers: {'Content-Type': 'application/json'},
+      agent: httpsAgent,
     })
   }
 
