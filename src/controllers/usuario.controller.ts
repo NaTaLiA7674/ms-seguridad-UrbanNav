@@ -203,21 +203,22 @@ export class UsuarioController {
     content: {'application/json': {schema: getModelSchemaRef(Usuario)}}
   })
   async identificarUsuario(
-    @requestBody(
-      {
-        content: {
-          'application/json': {
-            schema: getModelSchemaRef(Credenciales)
-          }
+    @requestBody({
+      content: {
+        'application/json': {
+          schema: getModelSchemaRef(Credenciales)
         }
       }
-    )
+    })
     credenciales: Credenciales
   ): Promise<object> {
     let usuario = await this.servicioSeguridad.identificarUsuario(credenciales);
+
     if (usuario) {
+      // Las credenciales son correctas, ahora proceder con la creación del código 2FA y notificación
       let codigo2fa = this.servicioSeguridad.crearTextoAleatorio(5);
       console.log(codigo2fa);
+
       let login: Login = new Login();
       login.usuarioId = usuario._id!;
       login.codigo2fa = codigo2fa;
@@ -225,7 +226,7 @@ export class UsuarioController {
       login.token = "";
       login.estadoToken = false;
       this.repositorioLogin.create(login);
-      usuario.clave = "";
+
       // notificar al usuario vía correo o SMS
       let datos = {
         correoDestino: usuario.correo,
@@ -233,12 +234,17 @@ export class UsuarioController {
         contenidoCorreo: `Su código de segundo factor de autenticación es: ${codigo2fa}`,
         asuntoCorreo: ConfiguracionNotificaciones.asunto2fa,
       };
+
       let url = ConfiguracionNotificaciones.urlNotificaciones2fa;
       this.servicioNotificaciones.EnviarNotificacion(datos, url);
+
       return usuario;
     }
-    return new HttpErrors[401]("Credenciales Incorrectas")
+
+    // Las credenciales son incorrectas
+    throw new HttpErrors[401]("Credenciales Incorrectas");
   }
+
 
   @post('/recuperar-clave')
   @response(200, {
