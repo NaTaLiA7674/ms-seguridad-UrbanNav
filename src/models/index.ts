@@ -7,3 +7,4 @@ export * from './rol-menu.model';
 export * from './rol.model';
 export * from './usuario.model';
 export * from './credenciales-recuperar-clave.model';
+export * from './hash-validacion-usuario.model';
