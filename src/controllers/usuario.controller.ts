@@ -24,6 +24,7 @@ import {UserProfile} from '@loopback/security';
 import {ConfiguracionNotificaciones} from '../config/notificaciones.config';
 import {ConfiguracionSeguridad} from '../config/seguridad.config';
 import {Credenciales, CredencialesRecuperarClave, FactorDeAutenticacionPorCodigo, Login, PermisosRolMenu, Usuario} from '../models';
+import {CredencialesCambiarClave} from '../models/credenciales-cambiar-clave.model';
 import {LoginRepository, UsuarioRepository} from '../repositories';
 import {NotificacionesService, SeguridadUsuarioService} from '../services';
 import {AuthService} from '../services/auth.service';
@@ -42,6 +43,10 @@ export class UsuarioController {
     public servicioNotificaciones: NotificacionesService
   ) { }
 
+  @authenticate({
+    strategy: "auth",
+    options: ["Usuario", "guardar"]
+  })
   @post('/usuario')
   @response(200, {
     description: 'Usuario model instance',
@@ -67,6 +72,53 @@ export class UsuarioController {
     let claveCifrada = this.servicioSeguridad.cifrarTexto(clave);
     // asignar la clave cifrada al usuario
     usuario.clave = claveCifrada;
+    // Enviar un correo electrónico de notificación
+    return this.usuarioRepository.create(usuario);
+  }
+
+  @post('/usuario-publico')
+  @response(200, {
+    description: 'Usuario model instance',
+    content: {'application/json': {schema: getModelSchemaRef(Usuario)}},
+  })
+  async creacionPublica(
+    @requestBody({
+      content: {
+        'application/json': {
+          schema: getModelSchemaRef(Usuario, {
+            title: 'NewUsuario',
+            exclude: ['_id'],
+          }),
+        },
+      },
+    })
+    usuario: Omit<Usuario, '_id'>,
+  ): Promise<Usuario> {
+    // crear la clave
+    let clave = this.servicioSeguridad.crearTextoAleatorio(10);
+    console.log(clave);
+    // cifrar la clave
+    let claveCifrada = this.servicioSeguridad.cifrarTexto(clave);
+    // asignar la clave cifrada al usuario
+    usuario.clave = claveCifrada;
+    //hash de validación de correo
+    let hash = this.servicioSeguridad.crearTextoAleatorio(100);
+    usuario.hashValidacion = hash;
+    usuario.estadoValidacion = false;
+    usuario.aceptado = false;
+
+    //Notificación del hash
+    let enlace = `<a href="${ConfiguracionNotificaciones.urlValidacionCorreoFrontend}/${hash}" target='_blanck'>Validar</a>`;
+    let datos = {
+      correoDestino: usuario.correo,
+      nombreDestino: usuario.primerNombre + " " + usuario.segundoApellido,
+      contenidoCorreo: `Por favor visite este link para validar su correo: ${enlace}`,
+      asuntoCorreo: ConfiguracionNotificaciones.asuntoVerificacionCorreo,
+    };
+
+    let url = ConfiguracionNotificaciones.urlNotificaciones2fa;
+    this.servicioNotificaciones.EnviarNotificacion(datos, url);
+
     // Enviar un correo electrónico de notificación
     return this.usuarioRepository.create(usuario);
   }
@@ -202,21 +254,22 @@ export class UsuarioController {
     content: {'application/json': {schema: getModelSchemaRef(Usuario)}}
   })
   async identificarUsuario(
-    @requestBody(
-      {
-        content: {
-          'application/json': {
-            schema: getModelSchemaRef(Credenciales)
-          }
+    @requestBody({
+      content: {
+        'application/json': {
+          schema: getModelSchemaRef(Credenciales)
         }
       }
-    )
+    })
     credenciales: Credenciales
   ): Promise<object> {
     let usuario = await this.servicioSeguridad.identificarUsuario(credenciales);
+
     if (usuario) {
+      // Las credenciales son correctas, ahora proceder con la creación del código 2FA y notificación
       let codigo2fa = this.servicioSeguridad.crearTextoAleatorio(5);
       console.log(codigo2fa);
+
       let login: Login = new Login();
       login.usuarioId = usuario._id!;
       login.codigo2fa = codigo2fa;
@@ -224,19 +277,22 @@ export class UsuarioController {
       login.token = "";
       login.estadoToken = false;
       this.repositorioLogin.create(login);
-      usuario.clave = "";
+
       // notificar al usuario vía correo o SMS
       let datos = {
         correoDestino: usuario.correo,
         nombreDestino: usuario.primerNombre + " " + usuario.segundoApellido,
-        contenidoCorreo:`Su código de segundo factor de autenticación es: ${codigo2fa}`,
+        contenidoCorreo: `Su código de segundo factor de autenticación es: ${codigo2fa}`,
         asuntoCorreo: ConfiguracionNotificaciones.asunto2fa,
       };
+
       let url = ConfiguracionNotificaciones.urlNotificaciones2fa;
       this.servicioNotificaciones.EnviarNotificacion(datos, url);
+
       return usuario;
     }
-    return new HttpErrors[401]("Credenciales Incorrectas")
+    // Las credenciales son incorrectas
+    throw new HttpErrors[401]("Credenciales Incorrectas");
   }
 
   @post('/recuperar-clave')
@@ -278,6 +334,49 @@ export class UsuarioController {
       return usuario;
     }
     return new HttpErrors[401]("Credenciales incorrectas.");
+  }
+
+  @post('/cambiar-clave')
+  @response(200, {
+    description: "Cambiar la clave de un usuario",
+    content: {'application/json': {schema: getModelSchemaRef(Usuario)}}
+  })
+  async CambiarClaveUsuario(
+    @requestBody({
+      content: {
+        'application/json': {
+          schema: getModelSchemaRef(CredencialesCambiarClave)
+        }
+      }
+    })
+    credenciales: CredencialesCambiarClave
+  ): Promise<object> {
+    try {
+      let usuario = await this.usuarioRepository.findById(credenciales.usuarioId);
+      if (usuario) {
+        let claveCifrada = this.servicioSeguridad.cifrarTexto(credenciales.clave);
+        console.log(credenciales.clave);
+        usuario.clave = claveCifrada;
+        this.usuarioRepository.updateById(usuario._id, usuario);
+
+        // notificar al usuario vía correo
+        let datos = {
+          correoDestino: usuario.correo,
+          nombreDestino: usuario.primerNombre + " " + usuario.segundoApellido,
+          contenidoCorreo: `Hola ${usuario.primerNombre}, su clave ha sido cambiada exitosamente. Su nueva clave es: ${credenciales.clave}`,
+          asuntoCorreo: ConfiguracionNotificaciones.asuntoCambioClave,
+        };
+        let url = ConfiguracionNotificaciones.urlNotificacionesCorreo;
+        await this.servicioNotificaciones.EnviarNotificacion(datos, url);
+
+        return usuario;
+      } else {
+        return new HttpErrors[401]("Credenciales incorrectas.");
+      }
+    } catch (error) {
+      console.error("Error al enviar correo:", error);
+      return new HttpErrors[500]("Error al enviar el correo");
+    }
   }
 
   @post('/validar-permisos')
@@ -341,7 +440,6 @@ export class UsuarioController {
         };
       }
     }
-    return new HttpErrors[401]("Código de 2fa inválido para el usuario definido")
-  }
+    throw new HttpErrors.UnprocessableEntity("Código de 2fa inválido para el usuario definido");  }
 
 }
