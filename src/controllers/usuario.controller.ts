@@ -327,11 +327,9 @@ export class UsuarioController {
 
       return usuario;
     }
-
     // Las credenciales son incorrectas
     throw new HttpErrors[401]("Credenciales Incorrectas");
   }
-
 
   @post('/recuperar-clave')
   @response(200, {
@@ -339,45 +337,39 @@ export class UsuarioController {
     content: {'application/json': {schema: getModelSchemaRef(Usuario)}}
   })
   async RecuperarClaveUsuario(
-    @requestBody({
-      content: {
-        'application/json': {
-          schema: getModelSchemaRef(CredencialesRecuperarClave)
+    @requestBody(
+      {
+        content: {
+          'application/json': {
+            schema: getModelSchemaRef(CredencialesRecuperarClave)
+          }
         }
       }
-    })
+    )
     credenciales: CredencialesRecuperarClave
   ): Promise<object> {
-    try {
-      let usuario = await this.usuarioRepository.findOne({
-        where: {
-          correo: credenciales.correo
-        }
-      });
-
-      if (usuario) {
-        let nuevaClave = this.servicioSeguridad.crearTextoAleatorio(5);
-        console.log(nuevaClave);
-        let claveCifrada = this.servicioSeguridad.cifrarTexto(nuevaClave);
-        usuario.clave = claveCifrada;
-        this.usuarioRepository.updateById(usuario._id, usuario);
-
-        // notificar al usuario vía sms
-        let datos = {
-          numeroDestino: usuario.celular,
-          contenidoMensaje: `Hola ${usuario.primerNombre}, su nueva clave es: ${nuevaClave}`,
-        };
-        let url = ConfiguracionNotificaciones.urlNotificacionesSms;
-        await this.servicioNotificaciones.EnviarNotificacion(datos, url);
-
-        return usuario;
-      } else {
-        return new HttpErrors[401]("Credenciales incorrectas.");
+    let usuario = await this.usuarioRepository.findOne({
+      where: {
+        correo: credenciales.correo
       }
-    } catch (error) {
-      console.error("Error al enviar SMS:", error);
-      return new HttpErrors[500]("Error al enviar el SMS");
+    });
+    if (usuario) {
+      let nuevaClave = this.servicioSeguridad.crearTextoAleatorio(5);
+      console.log(nuevaClave);
+      let claveCifrada = this.servicioSeguridad.cifrarTexto(nuevaClave);
+      usuario.clave = claveCifrada;
+      this.usuarioRepository.updateById(usuario._id, usuario);
+
+      // notificar al usuario vía sms
+      let datos = {
+        numeroDestino: usuario.celular,
+        contenidoMensaje: `Hola ${usuario.primerNombre}, su nueva clave es: ${nuevaClave}`,
+      };
+      let url = ConfiguracionNotificaciones.urlNotificacionesSms;
+      this.servicioNotificaciones.EnviarNotificacion(datos, url);
+      return usuario;
     }
+    return new HttpErrors[401]("Credenciales incorrectas.");
   }
 
   @post('/cambiar-clave')
@@ -422,8 +414,6 @@ export class UsuarioController {
       return new HttpErrors[500]("Error al enviar el correo");
     }
   }
-
-
 
   @post('/validar-permisos')
   @response(200, {
@@ -486,7 +476,6 @@ export class UsuarioController {
         };
       }
     }
-    throw new HttpErrors.UnprocessableEntity("Código de 2fa inválido para el usuario definido");
-  }
+    throw new HttpErrors.UnprocessableEntity("Código de 2fa inválido para el usuario definido");  }
 
 }
