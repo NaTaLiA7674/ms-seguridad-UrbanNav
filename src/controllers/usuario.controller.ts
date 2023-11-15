@@ -72,6 +72,7 @@ export class UsuarioController {
     let claveCifrada = this.servicioSeguridad.cifrarTexto(clave);
     // asignar la clave cifrada al usuario
     usuario.clave = claveCifrada;
+    usuario.estadoValidacion = true;
     // Enviar un correo electrónico de notificación
     return this.usuarioRepository.create(usuario);
   }
@@ -476,6 +477,7 @@ export class UsuarioController {
         };
       }
     }
-    throw new HttpErrors.UnprocessableEntity("Código de 2fa inválido para el usuario definido");  }
+    throw new HttpErrors.UnprocessableEntity("Código de 2fa inválido para el usuario definido");
+  }
 
 }
