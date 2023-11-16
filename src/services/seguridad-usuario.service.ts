@@ -46,6 +46,7 @@ export class SeguridadUsuarioService {
    * @returns usuario encontrado o null
    */
   async identificarUsuario(credenciales: Credenciales): Promise<Usuario | null> {
+    console.log("comparando credenciales", credenciales)
     let usuario = await this.repositorioUsuario.findOne({
       where: {
         correo: credenciales.correo,

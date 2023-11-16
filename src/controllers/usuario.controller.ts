@@ -28,7 +28,6 @@ import {CredencialesCambiarClave} from '../models/credenciales-cambiar-clave.mod
 import {LoginRepository, UsuarioRepository} from '../repositories';
 import {NotificacionesService, SeguridadUsuarioService} from '../services';
 import {AuthService} from '../services/auth.service';
-
 export class UsuarioController {
   constructor(
     @repository(UsuarioRepository)
@@ -42,7 +41,6 @@ export class UsuarioController {
     @service(NotificacionesService)
     public servicioNotificaciones: NotificacionesService
   ) { }
-
   @authenticate({
     strategy: "auth",
     options: ["Usuario", "guardar"]
@@ -76,7 +74,6 @@ export class UsuarioController {
     // Enviar un correo electrónico de notificación
     return this.usuarioRepository.create(usuario);
   }
-
   @post('/usuario-publico')
   @response(200, {
     description: 'Usuario model instance',
@@ -107,7 +104,14 @@ export class UsuarioController {
     usuario.hashValidacion = hash;
     usuario.estadoValidacion = false;
     usuario.aceptado = false;
-    usuario.rolId = ConfiguracionSeguridad.rolPasajero || ConfiguracionSeguridad.rolConductor;
+    //Si el usuario es un cliente, se le asigna el rol de cliente, el usuario viene desde el ms de logica
+    if (usuario.rolId == "65248419b7b4ea4d182c8fbe") {
+      usuario.rolId = ConfiguracionSeguridad.rolPasajero;
+    }
+    if (usuario.rolId == "65248429b7b4ea4d182c8fbf") {
+      usuario.rolId = ConfiguracionSeguridad.rolConductor;
+    }
+
 
     //Notificación del hash
     let enlace = `<a href="${ConfiguracionNotificaciones.urlValidacionCorreoFrontend}/${hash}" target='_blanck'>Validar</a>`;
@@ -117,10 +121,8 @@ export class UsuarioController {
       contenidoCorreo: `Por favor visite este link para validar su correo: ${enlace}`,
       asuntoCorreo: ConfiguracionNotificaciones.asuntoVerificacionCorreo,
     };
-
     let url = ConfiguracionNotificaciones.urlNotificaciones2fa;
     this.servicioNotificaciones.EnviarNotificacion(datos, url);
-
     //Envío de clave
     let datosCorreo = {
       correoDestino: usuario.correo,
@@ -132,7 +134,6 @@ export class UsuarioController {
     // Enviar un correo electrónico de notificación
     return this.usuarioRepository.create(usuario);
   }
-
   @post('/validar-hash-usuario')
   @response(200, {
     description: 'Validar hash',
@@ -160,7 +161,6 @@ export class UsuarioController {
     }
     return false;
   }
-
   @get('/usuario/count')
   @response(200, {
     description: 'Usuario model count',
@@ -171,11 +171,9 @@ export class UsuarioController {
   ): Promise<Count> {
     return this.usuarioRepository.count(where);
   }
-
   @authenticate({
     strategy: "auth",
     options: [ConfiguracionSeguridad.menuUsuarioId, ConfiguracionSeguridad.listarAccion],
-
   })
   @get('/usuario')
   @response(200, {
@@ -194,11 +192,9 @@ export class UsuarioController {
   ): Promise<Usuario[]> {
     return this.usuarioRepository.find(filter);
   }
-
   @authenticate({
     strategy: "auth",
     options: [ConfiguracionSeguridad.menuUsuarioId, ConfiguracionSeguridad.editarAccion],
-
   })
   @patch('/usuario')
   @response(200, {
@@ -218,11 +214,9 @@ export class UsuarioController {
   ): Promise<Count> {
     return this.usuarioRepository.updateAll(usuario, where);
   }
-
   @authenticate({
     strategy: "auth",
     options: [ConfiguracionSeguridad.menuUsuarioId, ConfiguracionSeguridad.descargarAccion],
-
   })
   @get('/usuario/{id}')
   @response(200, {
@@ -239,7 +233,6 @@ export class UsuarioController {
   ): Promise<Usuario> {
     return this.usuarioRepository.findById(id, filter);
   }
-
   @patch('/usuario/{id}')
   @response(204, {
     description: 'Usuario PATCH success',
@@ -257,7 +250,6 @@ export class UsuarioController {
   ): Promise<void> {
     await this.usuarioRepository.updateById(id, usuario);
   }
-
   @put('/usuario/{id}')
   @response(204, {
     description: 'Usuario PUT success',
@@ -268,11 +260,9 @@ export class UsuarioController {
   ): Promise<void> {
     await this.usuarioRepository.replaceById(id, usuario);
   }
-
   @authenticate({
     strategy: "auth",
     options: [ConfiguracionSeguridad.menuUsuarioId, ConfiguracionSeguridad.eliminarAccion],
-
   })
   @del('/usuario/{id}')
   @response(204, {
@@ -281,11 +271,9 @@ export class UsuarioController {
   async deleteById(@param.path.string('id') id: string): Promise<void> {
     await this.usuarioRepository.deleteById(id);
   }
-
   /**
    * Métodos personalizados para la API
    */
-
   @post('/identificar-usuario')
   @response(200, {
     description: "Identificar un usuario por correo y clave",
@@ -301,36 +289,38 @@ export class UsuarioController {
     })
     credenciales: Credenciales
   ): Promise<object> {
-    let usuario = await this.servicioSeguridad.identificarUsuario(credenciales);
-
-    if (usuario) {
-      // Las credenciales son correctas, ahora proceder con la creación del código 2FA y notificación
-      let codigo2fa = this.servicioSeguridad.crearTextoAleatorio(5);
-      console.log(codigo2fa);
-
-      let login: Login = new Login();
-      login.usuarioId = usuario._id!;
-      login.codigo2fa = codigo2fa;
-      login.estadoCodigo2fa = false;
-      login.token = "";
-      login.estadoToken = false;
-      this.repositorioLogin.create(login);
-
-      // notificar al usuario vía correo o SMS
-      let datos = {
-        correoDestino: usuario.correo,
-        nombreDestino: usuario.primerNombre + " " + usuario.segundoApellido,
-        contenidoCorreo: `Su código de segundo factor de autenticación es: ${codigo2fa}`,
-        asuntoCorreo: ConfiguracionNotificaciones.asunto2fa,
-      };
-
-      let url = ConfiguracionNotificaciones.urlNotificaciones2fa;
-      this.servicioNotificaciones.EnviarNotificacion(datos, url);
-
-      return usuario;
+    try {
+      console.log(credenciales);
+      let usuario = await this.servicioSeguridad.identificarUsuario(credenciales);
+      console.log("usuario encontrado ", usuario);
+      if (usuario) {
+        // Las credenciales son correctas, ahora proceder con la creación del código 2FA y notificación
+        let codigo2fa = this.servicioSeguridad.crearTextoAleatorio(5);
+        console.log(codigo2fa);
+        let login: Login = new Login();
+        login.usuarioId = usuario._id!;
+        login.codigo2fa = codigo2fa;
+        login.estadoCodigo2fa = false;
+        login.token = "";
+        login.estadoToken = false;
+        this.repositorioLogin.create(login);
+        // notificar al usuario vía correo o SMS
+        let datos = {
+          correoDestino: usuario.correo,
+          nombreDestino: usuario.primerNombre + " " + usuario.segundoApellido,
+          contenidoCorreo: `Su código de segundo factor de autenticación es: ${codigo2fa}`,
+          asuntoCorreo: ConfiguracionNotificaciones.asunto2fa,
+        };
+        let url = ConfiguracionNotificaciones.urlNotificaciones2fa;
+        this.servicioNotificaciones.EnviarNotificacion(datos, url);
+        return usuario;
+      }
+      // Las credenciales son incorrectas
+      throw new HttpErrors[401]("Credenciales Incorrectas");
+    } catch (error) {
+      console.error("Error al enviar correo:", error);
+      return new HttpErrors[500]("Error al enviar el correo");
     }
-    // Las credenciales son incorrectas
-    throw new HttpErrors[401]("Credenciales Incorrectas");
   }
 
   @post('/recuperar-clave')
@@ -361,7 +351,6 @@ export class UsuarioController {
       let claveCifrada = this.servicioSeguridad.cifrarTexto(nuevaClave);
       usuario.clave = claveCifrada;
       this.usuarioRepository.updateById(usuario._id, usuario);
-
       // notificar al usuario vía sms
       let datos = {
         numeroDestino: usuario.celular,
@@ -370,7 +359,7 @@ export class UsuarioController {
       let url = ConfiguracionNotificaciones.urlNotificacionesSms;
       this.servicioNotificaciones.EnviarNotificacion(datos, url);
 
-      // notificar al usuario vía correo
+      //notificar al usuario via correo
       let datosCorreo = {
         correoDestino: usuario.correo,
         nombreDestino: usuario.primerNombre + " " + usuario.segundoApellido,
@@ -380,10 +369,10 @@ export class UsuarioController {
       url = ConfiguracionNotificaciones.urlNotificacionesCorreo;
       this.servicioNotificaciones.EnviarNotificacion(datosCorreo, url);
       return usuario;
+
     }
     return new HttpErrors[401]("Credenciales incorrectas.");
   }
-
   @post('/cambiar-clave')
   @response(200, {
     description: "Cambiar la clave de un usuario",
@@ -406,7 +395,6 @@ export class UsuarioController {
         console.log(credenciales.clave);
         usuario.clave = claveCifrada;
         this.usuarioRepository.updateById(usuario._id, usuario);
-
         // notificar al usuario vía correo
         let datos = {
           correoDestino: usuario.correo,
@@ -415,7 +403,7 @@ export class UsuarioController {
           asuntoCorreo: ConfiguracionNotificaciones.asuntoCambioClave,
         };
         let url = ConfiguracionNotificaciones.urlNotificacionesCorreo;
-        this.servicioNotificaciones.EnviarNotificacion(datos, url);
+        await this.servicioNotificaciones.EnviarNotificacion(datos, url);
         return usuario;
       } else {
         return new HttpErrors[401]("Credenciales incorrectas.");
@@ -425,7 +413,6 @@ export class UsuarioController {
       return new HttpErrors[500]("Error al enviar el correo");
     }
   }
-
   @post('/validar-permisos')
   @response(200, {
     description: "Validación de permisos de un usuario para lógica de negocios",
@@ -446,7 +433,6 @@ export class UsuarioController {
     let idRol = this.servicioSeguridad.obtenerRolDesdeToken(datos.token);
     return this.servicioAuth.VerificarPermisoDeUsuarioPorRol(idRol, datos.idMenu, datos.accion);
   }
-
   @post('/verificar-2fa')
   @response(200, {
     description: "validar un código de 2fa",
@@ -492,5 +478,4 @@ export class UsuarioController {
     }
     throw new HttpErrors.UnprocessableEntity("Código de 2fa inválido para el usuario definido");
   }
-
 }
