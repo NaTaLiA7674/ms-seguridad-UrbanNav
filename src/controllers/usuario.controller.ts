@@ -369,6 +369,16 @@ export class UsuarioController {
       };
       let url = ConfiguracionNotificaciones.urlNotificacionesSms;
       this.servicioNotificaciones.EnviarNotificacion(datos, url);
+
+      // notificar al usuario vía correo
+      let datosCorreo = {
+        correoDestino: usuario.correo,
+        nombreDestino: usuario.primerNombre + " " + usuario.segundoApellido,
+        contenidoCorreo: `Hola ${usuario.primerNombre}, su nueva clave es: ${nuevaClave}`,
+        asuntoCorreo: ConfiguracionNotificaciones.asuntoCambioClave,
+      };
+      url = ConfiguracionNotificaciones.urlNotificacionesCorreo;
+      this.servicioNotificaciones.EnviarNotificacion(datosCorreo, url);
       return usuario;
     }
     return new HttpErrors[401]("Credenciales incorrectas.");
@@ -405,8 +415,7 @@ export class UsuarioController {
           asuntoCorreo: ConfiguracionNotificaciones.asuntoCambioClave,
         };
         let url = ConfiguracionNotificaciones.urlNotificacionesCorreo;
-        await this.servicioNotificaciones.EnviarNotificacion(datos, url);
-
+        this.servicioNotificaciones.EnviarNotificacion(datos, url);
         return usuario;
       } else {
         return new HttpErrors[401]("Credenciales incorrectas.");
