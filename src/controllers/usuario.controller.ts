@@ -43,7 +43,7 @@ export class UsuarioController {
   ) { }
   @authenticate({
     strategy: "auth",
-    options: ["Usuario", "guardar"]
+    options: [ConfiguracionSeguridad.menuUsuarioId, ConfiguracionSeguridad.guardarAccion],
   })
   @post('/usuario')
   @response(200, {
